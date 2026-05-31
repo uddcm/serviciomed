@@ -1109,7 +1109,8 @@ overflow-wrap: break-word;
 
       // Si no hay interpretación cargada, eliminar esa sección completa del archivo exportado.
       if (!hayInterpretacion) {
-        const seccionInterpretacion = clon.querySelector('section[aria-label="Interpretación mastográfica"]');
+        const contenidoClon = clon.querySelector('#contenido');
+        const seccionInterpretacion = contenidoClon ? contenidoClon.closest('section') : null;
         if (seccionInterpretacion) seccionInterpretacion.remove();
       }
 
