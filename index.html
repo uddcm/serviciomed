@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mastografía · Expediente Digital</title>
+  <title>RX Servivicio Médico · Expediente Digital</title>
   <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
   <!-- Librerías para leer DICOM directamente en el navegador -->
   <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
@@ -15,22 +15,20 @@
        VARIABLES GLOBALES
     ═══════════════════════════════════════ */
     :root {
-      --gold:          #CAA342;
-      --gold-soft:     rgba(202, 163, 66, 0.35);
-      --gold-mid:      rgba(202, 163, 66, 0.6);
-      --guinda-dark:   #7A1F3D;
-      --guinda-vivid:  #C23A6B;
-      --guinda-grad:   linear-gradient(90deg, #7A1F3D, #C23A6B);
-      --text:          #1a1a1a;
-      --text-soft:     #555;
-      --bg:            #f7f5f2;
-      --white:         #ffffff;
-      --frame-dark:    #1c1c1c;
-      --maxw:          1100px;
-      --radius:        16px;
-      --border:        2.5px solid var(--gold);
-      --pad:           clamp(18px, 3vw, 32px);
-      --logo-h:        100px;
+--gold:          #2F6FB3;
+--gold-soft:     rgba(47, 111, 179, 0.18);
+--gold-mid:      rgba(47, 111, 179, 0.45);
+--guinda-dark:   #2F6FB3;
+--guinda-vivid:  #5B9BDA;
+--guinda-grad:   linear-gradient(90deg, #2F6FB3, #5B9BDA);
+--bg:            #F4F6F8;
+--white:         #FFFFFF;
+--frame-dark:    #1c1c1c;
+--maxw:          1100px;
+--radius:        16px;
+--border:        2.5px solid var(--gold);
+--pad:           clamp(18px, 3vw, 32px);
+--logo-h:        100px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -198,11 +196,12 @@ overflow-wrap: break-word;
     @media (max-width: 640px) {
       .cards-grid { grid-template-columns: 1fr; }
     }
-    .card-info {
-      border: 1px solid var(--gold-soft);
-      border-radius: 10px;
-      padding: 14px 16px;
-    }
+.card-info {
+  border: 1px solid var(--gold-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+}
     .card-info h3 {
       font-size: .88rem;
       font-family: system-ui, sans-serif;
@@ -241,13 +240,14 @@ overflow-wrap: break-word;
     }
 
     /* Tarjeta de datos del paciente */
-    .card-paciente {
-      border: 1.5px solid var(--gold);
-      border-radius: 10px;
-      padding: 10px 16px 12px;
-      margin-bottom: 18px;
-      font-family: system-ui, sans-serif;
-    }
+.card-paciente {
+  border: 1.5px solid var(--gold);
+  border-radius: 10px;
+  padding: 10px 16px 12px;
+  margin-bottom: 18px;
+  font-family: system-ui, sans-serif;
+  background: #F8FAFC;
+}
     .card-paciente h3 {
       text-align: center;
       font-size: .85rem;
@@ -525,7 +525,7 @@ overflow-wrap: break-word;
 
   <!-- inputs ocultos -->
   <input type="file" id="docx" accept=".docx" />
-  <input type="file" id="imgs" accept="image/*" multiple />
+  <input type="file" id="imgs" accept="image/*" webkitdirectory multiple />
   <input type="file" id="dicoms" accept=".dcm,application/dicom" multiple />
 
   <!-- ══════════════════════════════════════════
@@ -542,7 +542,7 @@ overflow-wrap: break-word;
       <hr class="sep-gold" />
 
       <div class="caratula-headline">
-        <img src="img/logo_central.png" alt="Campaña de Mastografía" class="img-caratula">
+        <img src="img/logo_central.png" alt="logo central" class="img-caratula">
       </div>
 
       <div id="patientName" aria-label="Nombre del paciente"></div>
@@ -566,7 +566,7 @@ overflow-wrap: break-word;
 
       <hr class="sep-gold" />
 
-      <p class="caratula-footer">Servicio de Mastografía · servicio.mastografia@senado.gob.mx</p>
+      <p class="caratula-footer">Servicio Médico · servicio.medico@senado.gob.mx</p>
 
     </div>
   </section>
@@ -574,7 +574,7 @@ overflow-wrap: break-word;
   <!-- ══════════════════════════════════════════
        SECCIÓN 2 · INTERPRETACIÓN
   ══════════════════════════════════════════ -->
-  <section class="seccion" aria-label="Interpretación mastográfica">
+  <section class="seccion" aria-label="Interpretación radiográfica">
     <div class="marco">
 
       <div class="sec-logos">
@@ -582,7 +582,9 @@ overflow-wrap: break-word;
         <img class="logo-der" src="" alt="Logo institucional derecho" />
       </div>
 
-      <p class="frase-prevencion">¡Di sí a la prevención!</p>
+      <div class="caratula-headline">
+        <img src="img/logo_central.png" alt="logo central" class="img-caratula">
+      </div>
 
       <hr class="sep-gold" />
 
@@ -592,9 +594,9 @@ overflow-wrap: break-word;
         <div class="firma-row">
           <div class="firma-datos">
             <strong>INTERPRETA:</strong><br>
-            DRA. KARINA ORTIZ CONTRERAS<br>
-            MÉDICO RADIÓLOGO C.P. 9703299<br>
-            ALTA ESPECIALIDAD EN RADIOLOGÍA DE LA MAMA
+            DRA. XXXXX<br>
+            MÉDICO RADIÓLOGO C.P. xxxx<br>
+            
           </div>
           <img class="firma-img" src="img/firma_karina.png" alt="Firma" />
         </div>
@@ -655,18 +657,7 @@ overflow-wrap: break-word;
           Por lo anterior, los resultados de los estudios pueden entregarse por medios
           electrónicos como parte del expediente clínico.
         </p>
-        <p>
-          Las imágenes médicas para interpretación diagnóstica requieren monitores de grado
-          médico, calibrados bajo estándares DICOM. Las pantallas convencionales no están
-          diseñadas ni certificadas para este fin, por lo que las imágenes entregadas no deben
-          utilizarse para interpretación clínica, la cual ya fue realizada y consignada en el
-          informe correspondiente.
-        </p>
-        <p>
-          Los resultados del estudio deben ser revisados por el médico tratante, quien es el
-          responsable de integrarlos al contexto clínico del paciente. La interpretación sin
-          asesoría médica puede conducir a una comprensión inadecuada o parcial, por lo que se
-          recomienda que el análisis se realice siempre con orientación profesional.
+       
         </p>
       </div>
 
@@ -810,6 +801,13 @@ overflow-wrap: break-word;
     inputImgs.addEventListener('change', async (e) => {
       const files = [...(e.target.files || [])];
       if (!files.length) return;
+
+      // Si no hay interpretación cargada, usar el nombre de la carpeta en la carátula.
+      if (!elContenido.innerHTML.trim() && files[0].webkitRelativePath) {
+        const nombreCarpeta = files[0].webkitRelativePath.split('/')[0];
+        elNombre.textContent = nombreCarpeta;
+      }
+
       for (const f of files) {
         items.push({ src: await toBase64(f), s: { scale: 1, tx: 0, ty: 0, fit: 1, contrast: 100 } });
       }
