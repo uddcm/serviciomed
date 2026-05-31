@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mastografía · Expediente Digital</title>
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+  <!-- Librerías para leer DICOM directamente en el navegador -->
+  <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+  <script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+  <script src="https://unpkg.com/cornerstone-math@0.1.10/dist/cornerstoneMath.min.js"></script>
+  <script src="https://unpkg.com/cornerstone-wado-image-loader@4.13.1/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════
+       VARIABLES GLOBALES
+    ═══════════════════════════════════════ */
+    :root {
+      --gold:          #CAA342;
+      --gold-soft:     rgba(202, 163, 66, 0.35);
+      --gold-mid:      rgba(202, 163, 66, 0.6);
+      --guinda-dark:   #7A1F3D;
+      --guinda-vivid:  #C23A6B;
+      --guinda-grad:   linear-gradient(90deg, #7A1F3D, #C23A6B);
+      --text:          #1a1a1a;
+      --text-soft:     #555;
+      --bg:            #f7f5f2;
+      --white:         #ffffff;
+      --frame-dark:    #1c1c1c;
+      --maxw:          1100px;
+      --radius:        16px;
+      --border:        2.5px solid var(--gold);
+      --pad:           clamp(18px, 3vw, 32px);
+      --logo-h:        100px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', serif;
+      line-height: 1.6;
+    }
+
+    /* ═══════════════════════════════════════
+       TOOLBAR — 4 botones minimalistas
+    ═══════════════════════════════════════ */
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: #fff;
+      border-bottom: 1px solid #e0d9cf;
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tb-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid #c8c0b4;
+      border-radius: 8px;
+      background: #faf9f7;
+      color: #333;
+      transition: border-color .15s, background .15s;
+      white-space: nowrap;
+      text-decoration: none;
+      line-height: 1;
+    }
+    .tb-btn:hover  { background: #f0ece4; border-color: var(--gold); }
+    .tb-btn:active { background: #e8e2d6; }
+
+    #docx, #imgs, #dicoms { display: none; }
+
+    /* ═══════════════════════════════════════
+       MARCO UNIFICADO — idéntico en las 4 secciones
+    ═══════════════════════════════════════ */
+    .seccion {
+      padding: clamp(16px, 3vw, 28px) clamp(12px, 3vw, 24px);
+      display: flex;
+      justify-content: center;
+    }
+
+    .marco {
+      width: 100%;
+      max-width: var(--maxw);
+      background: var(--white);
+      border: var(--border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      position: relative;
+    }
+
+    /* Encabezado de logos — igual en todas las secciones */
+    .sec-logos {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .sec-logos img {
+      height: var(--logo-h);
+      max-width: 220px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Título de sección */
+    .sec-titulo {
+      text-align: center;
+      font-size: clamp(1.1rem, 2vw, 1.45rem);
+      font-weight: 700;
+      font-family: system-ui, sans-serif;
+      letter-spacing: .3px;
+      background: var(--guinda-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 20px;
+    }
+
+    /* Separador dorado */
+    .sep-gold {
+      border: none;
+      border-top: 1px solid var(--gold-mid);
+      margin: 18px 0;
+    }
+
+    /* ═══════════════════════════════════════
+       SECCIÓN 1 · CARÁTULA
+    ═══════════════════════════════════════ */
+    .caratula-headline {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .caratula-headline h1 {
+      font-size: clamp(2rem, 4.5vw, 3.4rem);
+      font-weight: 900;
+      font-family: system-ui, sans-serif;
+      line-height: 1.05;
+      background: var(--guinda-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: -0.5px;
+    }
+    
+    .img-caratula{
+      display:block;
+      margin:0 auto;
+      max-width:200px;
+      width:100%;
+      height:auto;
+    }
+
+.caratula-headline p {
+      margin-top: 8px;
+      color: var(--text-soft);
+      font-size: .95rem;
+      font-family: system-ui, sans-serif;
+    }
+
+    /* Nombre del paciente */
+    #patientName {
+      text-align: center;
+      font-size: clamp(1.1rem, 3vw, 2.5rem);
+      font-weight: 900;
+      font-family: system-ui, sans-serif;
+      color: var(--gold);
+      letter-spacing: .4px;
+      padding: 28px 0 24px;
+      min-height: 40px;
+word-break: break-word;
+overflow-wrap: break-word;
+    }
+    #patientName:empty::after {
+      content: '–';
+      opacity: .4;
+    }
+
+    /* Cards de info */
+    .cards-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 640px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+    .card-info {
+      border: 1px solid var(--gold-soft);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .card-info h3 {
+      font-size: .88rem;
+      font-family: system-ui, sans-serif;
+      font-weight: 800;
+      background: var(--guinda-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 5px;
+    }
+    .card-info p {
+      font-size: .88rem;
+      color: var(--text-soft);
+      font-family: system-ui, sans-serif;
+      line-height: 1.4;
+    }
+
+    .caratula-footer {
+      text-align: center;
+      font-size: .82rem;
+      color: #888;
+      font-family: system-ui, sans-serif;
+      padding-top: 4px;
+    }
+
+    /* ═══════════════════════════════════════
+       SECCIÓN 2 · INTERPRETACIÓN
+    ═══════════════════════════════════════ */
+    .frase-prevencion {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--guinda-dark);
+      font-family: system-ui, sans-serif;
+      padding: 4px 0 16px;
+    }
+
+    /* Tarjeta de datos del paciente */
+    .card-paciente {
+      border: 1.5px solid var(--gold);
+      border-radius: 10px;
+      padding: 10px 16px 12px;
+      margin-bottom: 18px;
+      font-family: system-ui, sans-serif;
+    }
+    .card-paciente h3 {
+      text-align: center;
+      font-size: .85rem;
+      font-weight: 800;
+      color: var(--guinda-dark);
+      margin-bottom: 8px;
+    }
+    .paciente-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 24px;
+    }
+    @media (max-width: 480px) {
+      .paciente-grid { grid-template-columns: 1fr; }
+    }
+    .paciente-col p {
+      font-size: .84rem;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    /* Cuerpo de interpretación */
+    #contenido {
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    #contenido:empty::after {
+      content: 'Cargue un archivo .docx para ver la interpretación.';
+      color: #bbb;
+      font-style: italic;
+      font-family: system-ui, sans-serif;
+      font-size: .9rem;
+    }
+
+    /* Pie — firma e interpreta */
+    .pie-firma {
+      border-top: 1px solid var(--guinda-dark);
+      padding-top: 16px;
+      margin-top: 24px;
+    }
+    .firma-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 48px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 480px) {
+      .firma-row { flex-direction: column; gap: 12px; }
+    }
+    .firma-datos {
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      line-height: 1.45;
+      color: var(--text);
+    }
+    .firma-img {
+      display: block;
+      max-width: 200px;
+      max-height: 76px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    .linea-divisor {
+      border: none;
+      border-top: 1px solid var(--guinda-dark);
+      margin: 10px 0;
+    }
+    .nota-legal {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #666;
+      font-family: system-ui, sans-serif;
+      text-align: center;
+    }
+
+    /* ═══════════════════════════════════════
+       SECCIÓN 3 · VISOR DE IMÁGENES
+    ═══════════════════════════════════════ */
+
+    /* Área con scroll propio para evitar que el touch robe el scroll de página */
+    .visor-scroll {
+      max-height: 90vh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border-radius: 10px;
+      /* barra de scroll visible y estilizada */
+      scrollbar-width: thin;
+      scrollbar-color: var(--gold) #f0ece4;
+    }
+    .visor-scroll::-webkit-scrollbar       { width: 8px; }
+    .visor-scroll::-webkit-scrollbar-track { background: #f0ece4; border-radius: 8px; }
+    .visor-scroll::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 8px; }
+
+    /* Grid en una sola columna: una imagen grande por línea */
+    .img-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      padding: 4px 2px;
+    }
+
+    .img-frame {
+      background: var(--frame-dark);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--gold-soft);
+      position: relative;
+      cursor: grab;
+    }
+    .img-frame.dragging { opacity: .5; }
+
+    .viewport {
+      height: clamp(360px, 70vw, 820px);
+      background: #111;
+      position: relative;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .viewport img {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform-origin: center center;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Controles flotantes sobre la imagen */
+    .img-controls {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      display: flex;
+      gap: 5px;
+      background: rgba(0,0,0,.6);
+      border-radius: 8px;
+      padding: 5px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .ctrl-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      background: #111;
+      color: #fff;
+      border: 1px solid #444;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      font-family: system-ui, sans-serif;
+    }
+    .ctrl-btn:hover { border-color: var(--gold); }
+
+    .ctrl-slider {
+      width: 80px;
+      height: 30px;
+      cursor: pointer;
+      accent-color: var(--gold);
+    }
+
+
+    /* Visor fullscreen compatible con iOS: usa overlay fijo en vez de depender solo del Fullscreen API */
+    .fs-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .fs-overlay.activo { display: flex; }
+    .fs-viewport {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .fs-viewport img {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform-origin: center center;
+      user-select: none;
+      pointer-events: none;
+      max-width: none;
+    }
+    .fs-controls {
+      position: fixed;
+      right: 10px;
+      bottom: 10px;
+      z-index: 10000;
+      display: flex;
+      gap: 6px;
+      background: rgba(0,0,0,.72);
+      border-radius: 10px;
+      padding: 7px;
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    .fs-close {
+      position: fixed;
+      right: 10px;
+      top: 10px;
+      z-index: 10000;
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      background: rgba(0,0,0,.72);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.18);
+      font-size: 22px;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+    }
+    body.fs-lock { overflow: hidden; }
+
+    /* Placeholder cuando no hay imágenes */
+    .img-placeholder {
+      text-align: center;
+      padding: 40px 20px;
+      color: #bbb;
+      font-size: .9rem;
+      font-family: system-ui, sans-serif;
+      font-style: italic;
+    }
+
+    /* ═══════════════════════════════════════
+       SECCIÓN 4 · NORMAS
+    ═══════════════════════════════════════ */
+    .normas-texto {
+      font-size: .92rem;
+      font-family: system-ui, sans-serif;
+      color: var(--text-soft);
+      line-height: 1.75;
+    }
+    .normas-texto p { margin-bottom: 14px; }
+    .normas-texto p:last-child { margin-bottom: 0; }
+
+    /* ═══════════════════════════════════════
+       UTILIDADES
+    ═══════════════════════════════════════ */
+    .sr-only {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip: rect(1px,1px,1px,1px);
+      white-space: nowrap;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       TOOLBAR — 4 botones, fuera de los marcos
+  ══════════════════════════════════════════ -->
+  <div class="toolbar" id="toolbar">
+    <label class="tb-btn" for="docx">📄 Cargar .docx</label>
+    <label class="tb-btn" for="imgs">🖼 Cargar imágenes</label>
+    <label class="tb-btn" for="dicoms">🩻 Cargar DICOM</label>
+    <button class="tb-btn" id="btnLimpiar">🗑 Limpiar</button>
+    <button class="tb-btn" id="btnExportar">⬇ Exportar HTML</button>
+  </div>
+
+  <!-- inputs ocultos -->
+  <input type="file" id="docx" accept=".docx" />
+  <input type="file" id="imgs" accept="image/*" multiple />
+  <input type="file" id="dicoms" accept=".dcm,application/dicom" multiple />
+
+  <!-- ══════════════════════════════════════════
+       SECCIÓN 1 · CARÁTULA
+  ══════════════════════════════════════════ -->
+  <section class="seccion" aria-label="Carátula">
+    <div class="marco">
+
+      <div class="sec-logos">
+        <img class="logo-izq" src="" alt="Logo institucional izquierdo" />
+        <img class="logo-der" src="" alt="Logo institucional derecho" />
+      </div>
+
+      <hr class="sep-gold" />
+
+      <div class="caratula-headline">
+        <img src="img/logo_central.png" alt="Campaña de Mastografía" class="img-caratula">
+      </div>
+
+      <div id="patientName" aria-label="Nombre del paciente"></div>
+
+      <hr class="sep-gold" />
+
+      <div class="cards-grid">
+        <div class="card-info">
+          <h3>Horario</h3>
+          <p>Lunes a viernes<br>9:00 a 14:30 h</p>
+        </div>
+        <div class="card-info">
+          <h3>Domicilio</h3>
+          <p>Senado de la República<br>Acceso Madrid 62 · CDMX</p>
+        </div>
+        <div class="card-info">
+          <h3>Teléfono</h3>
+          <p>55 5345 3000<br>Ext. 6342</p>
+        </div>
+      </div>
+
+      <hr class="sep-gold" />
+
+      <p class="caratula-footer">Servicio de Mastografía · servicio.mastografia@senado.gob.mx</p>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECCIÓN 2 · INTERPRETACIÓN
+  ══════════════════════════════════════════ -->
+  <section class="seccion" aria-label="Interpretación mastográfica">
+    <div class="marco">
+
+      <div class="sec-logos">
+        <img class="logo-izq" src="" alt="Logo institucional izquierdo" />
+        <img class="logo-der" src="" alt="Logo institucional derecho" />
+      </div>
+
+      <p class="frase-prevencion">¡Di sí a la prevención!</p>
+
+      <hr class="sep-gold" />
+
+      <div id="contenido" aria-label="Contenido de interpretación"></div>
+
+      <div class="pie-firma">
+        <div class="firma-row">
+          <div class="firma-datos">
+            <strong>INTERPRETA:</strong><br>
+            DRA. KARINA ORTIZ CONTRERAS<br>
+            MÉDICO RADIÓLOGO C.P. 9703299<br>
+            ALTA ESPECIALIDAD EN RADIOLOGÍA DE LA MAMA
+          </div>
+          <img class="firma-img" src="img/firma_karina.png" alt="Firma" />
+        </div>
+        <hr class="linea-divisor" />
+        <p class="nota-legal">
+          En la mastografía del 5% al 10% de las neoplasias no son visibles.<br>
+          Un reporte NEGATIVO no deberá posponer una biopsia si hay sospecha clínica.<br>
+          La especificidad de la mastografía es de 85%–87% y la sensibilidad del 95%, ambas disminuyen ante mayor densidad del tejido mamario.<br>
+          El diagnóstico final lo determina su Médico tratante con apoyo de los estudios de imágenes.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECCIÓN 3 · VISOR DE IMÁGENES
+  ══════════════════════════════════════════ -->
+  <section class="seccion" aria-label="Imágenes clínicas">
+    <div class="marco">
+
+      <div class="sec-logos">
+        <img class="logo-izq" src="" alt="Logo institucional izquierdo" />
+        <img class="logo-der" src="" alt="Logo institucional derecho" />
+      </div>
+
+      <p class="sec-titulo">Imágenes Clínicas</p>
+
+      <div class="visor-scroll">
+        <div id="imgGrid" class="img-grid">
+          <div class="img-placeholder" style="grid-column:1/-1">
+            Cargue imágenes para visualizarlas aquí.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECCIÓN 4 · INFORMACIÓN NORMATIVA
+  ══════════════════════════════════════════ -->
+  <section class="seccion" aria-label="Información importante" style="padding-bottom: 40px;">
+    <div class="marco">
+
+      <div class="sec-logos">
+        <img class="logo-izq" src="" alt="Logo institucional izquierdo" />
+        <img class="logo-der" src="" alt="Logo institucional derecho" />
+      </div>
+
+      <p class="sec-titulo">Información Importante</p>
+
+      <div class="normas-texto">
+        <p>
+          De conformidad con la NOM-004-SSA3-2012, el expediente clínico puede integrarse,
+          conservarse y transmitirse mediante medios electrónicos, siempre que se garantice
+          la confidencialidad, integridad y disponibilidad de la información.
+          Por lo anterior, los resultados de los estudios pueden entregarse por medios
+          electrónicos como parte del expediente clínico.
+        </p>
+        <p>
+          Las imágenes médicas para interpretación diagnóstica requieren monitores de grado
+          médico, calibrados bajo estándares DICOM. Las pantallas convencionales no están
+          diseñadas ni certificadas para este fin, por lo que las imágenes entregadas no deben
+          utilizarse para interpretación clínica, la cual ya fue realizada y consignada en el
+          informe correspondiente.
+        </p>
+        <p>
+          Los resultados del estudio deben ser revisados por el médico tratante, quien es el
+          responsable de integrarlos al contexto clínico del paciente. La interpretación sin
+          asesoría médica puede conducir a una comprensión inadecuada o parcial, por lo que se
+          recomienda que el análisis se realice siempre con orientación profesional.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SCRIPTS
+  ══════════════════════════════════════════ -->
+  <script>
+  (function () {
+    'use strict';
+
+    /* ─── LOGOS EN BASE64 ───────────────────────────────
+       Pega aquí los data URL de los logos.
+       Se aplican automáticamente a todas las secciones.
+    ──────────────────────────────────────────────────── */
+    const LOGO_IZQ = 'img/logo_izquierdo.png';
+    const LOGO_DER = 'img/logo_derecho.png';
+
+    function aplicarLogos(doc) {
+      doc.querySelectorAll('.logo-izq').forEach(img => { img.src = LOGO_IZQ; });
+      doc.querySelectorAll('.logo-der').forEach(img => { img.src = LOGO_DER; });
+    }
+    aplicarLogos(document);
+
+    /* ─── ESTADO GLOBAL DE IMÁGENES ──────────────────── */
+    let items      = [];
+    let dragIndex  = null;
+
+    /* ─── REFERENCIAS DOM ────────────────────────────── */
+    const inputDocx    = document.getElementById('docx');
+    const inputImgs    = document.getElementById('imgs');
+    const inputDicoms  = document.getElementById('dicoms');
+    const btnLimpiar   = document.getElementById('btnLimpiar');
+    const btnExportar  = document.getElementById('btnExportar');
+    const elNombre     = document.getElementById('patientName');
+    const elContenido  = document.getElementById('contenido');
+    const elGrid       = document.getElementById('imgGrid');
+
+    /* ─── CONFIGURACIÓN DICOM ──────────────────────────
+       Permite leer archivos .dcm locales, renderizarlos en canvas
+       y convertirlos a JPG/base64 para integrarlos al expediente.
+    ──────────────────────────────────────────────────── */
+    let dicomDisponible = false;
+    try {
+      if (window.cornerstoneWADOImageLoader && window.cornerstone && window.dicomParser) {
+        cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+        cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+        cornerstoneWADOImageLoader.configure({ useWebWorkers: true });
+        cornerstoneWADOImageLoader.webWorkerManager.initialize({
+          maxWebWorkers: navigator.hardwareConcurrency || 2,
+          startWebWorkersOnDemand: true,
+          taskConfiguration: {
+            decodeTask: {
+              codecsPath: 'https://unpkg.com/cornerstone-wado-image-loader@4.13.1/dist/cornerstoneWADOImageLoaderCodecs.js'
+            }
+          }
+        });
+        dicomDisponible = true;
+      }
+    } catch (err) {
+      console.warn('No se pudieron inicializar las librerías DICOM:', err);
+    }
+
+    /* ─── SECCIÓN 2: CARGAR .DOCX ────────────────────── */
+    inputDocx.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      // Nombre del paciente desde el nombre del archivo
+      elNombre.textContent = file.name.replace(/\.docx$/i, '');
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+        let texto = (result && result.value) ? result.value : '';
+        texto = texto.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+
+        const { datos, resto } = parsearDocumento(texto);
+        const tarjeta = renderTarjeta(datos);
+
+        // Resaltar secciones diagnósticas clave
+        let html = esc(resto)
+          .replace(/IMPRESIÓN DIAGNOS[TÁ]ICA/gi, '<strong style="color:var(--guinda-dark)">$&</strong>')
+          .replace(/BIRADS|BI-RADS/gi, '<strong>$&</strong>');
+
+        elContenido.innerHTML = tarjeta + '<div>' + html.replace(/\n/g, '<br>') + '</div>';
+      } catch (err) {
+        console.error(err);
+        elContenido.innerHTML = '<p style="color:#b00;font-family:system-ui,sans-serif">No se pudo leer el archivo .docx.</p>';
+      }
+    });
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function parsearDocumento(texto) {
+      const campos = [
+        { key: 'nombre',     rx: /^Nombre:\s*(.+)$/m },
+        { key: 'id',         rx: /^ID del Paciente:\s*(.+)$/m },
+        { key: 'genero',     rx: /^G[eé]nero:\s*(.+)$/mi },
+        { key: 'edad',       rx: /^Edad:\s*(.+)$/m },
+        { key: 'modalidad',  rx: /^Modalidad:\s*(.+)$/m },
+        { key: 'fecha',      rx: /^Fecha del estudio:\s*(.+)$/m },
+      ];
+      const datos = {};
+      let t = texto;
+      campos.forEach(({ key, rx }) => {
+        const m = t.match(rx);
+        if (m) { datos[key] = m[1].trim(); t = t.replace(rx, ''); }
+      });
+      t = t.replace(/\n{3,}/g, '\n\n').trim();
+      return { datos, resto: t };
+    }
+
+    function renderTarjeta(datos) {
+      const col1 = [], col2 = [];
+      if (datos.nombre)    col1.push('Nombre: ' + esc(datos.nombre));
+      if (datos.id)        col1.push('ID: ' + esc(datos.id));
+      if (datos.genero)    col1.push('Género: ' + esc(datos.genero));
+      if (datos.edad)      col2.push('Edad: ' + esc(datos.edad));
+      if (datos.modalidad) col2.push('Modalidad: ' + esc(datos.modalidad));
+      if (datos.fecha)     col2.push('Fecha: ' + esc(datos.fecha));
+      if (!col1.length && !col2.length) return '';
+      return `<div class="card-paciente">
+        <h3>Datos del paciente</h3>
+        <div class="paciente-grid">
+          <div class="paciente-col">${col1.map(l => '<p>' + l + '</p>').join('')}</div>
+          <div class="paciente-col">${col2.map(l => '<p>' + l + '</p>').join('')}</div>
+        </div>
+      </div>`;
+    }
+
+    /* ─── SECCIÓN 3: CARGAR IMÁGENES ─────────────────── */
+    inputImgs.addEventListener('change', async (e) => {
+      const files = [...(e.target.files || [])];
+      if (!files.length) return;
+      for (const f of files) {
+        items.push({ src: await toBase64(f), s: { scale: 1, tx: 0, ty: 0, fit: 1, contrast: 100 } });
+      }
+      inputImgs.value = '';
+      renderGrid(elGrid, items);
+    });
+
+    /* ─── SECCIÓN 3B: CARGAR DICOM DIRECTO ───────────── */
+    inputDicoms.addEventListener('change', async (e) => {
+      const files = [...(e.target.files || [])];
+      if (!files.length) return;
+
+      if (!dicomDisponible) {
+        alert('No se pudieron cargar las librerías DICOM. Verifique la conexión a internet o use imágenes JPG/PNG.');
+        inputDicoms.value = '';
+        return;
+      }
+
+      for (const f of files) {
+        try {
+          const meta = await leerMetadatosDicom(f);
+          if (meta.nombre && !elNombre.textContent.trim()) {
+            elNombre.textContent = meta.nombre;
+          }
+
+          const jpg = await dicomAImagenBase64(f);
+          items.push({
+            src: jpg,
+            s: { scale: 1, tx: 0, ty: 0, fit: 1, contrast: 100 },
+            meta: meta
+          });
+        } catch (err) {
+          console.error('No se pudo convertir DICOM:', f.name, err);
+          alert('No se pudo convertir el archivo DICOM: ' + f.name + '\nPuede estar comprimido o tener un formato no soportado por el navegador.');
+        }
+      }
+
+      inputDicoms.value = '';
+      renderGrid(elGrid, items);
+    });
+
+    btnLimpiar.addEventListener('click', () => location.reload());
+
+
+
+    function abrirFullscreen(it) {
+      const overlay = document.createElement('div');
+      overlay.className = 'fs-overlay activo';
+
+      const vp = document.createElement('div');
+      vp.className = 'fs-viewport';
+
+      const img = document.createElement('img');
+      img.src = it.src;
+
+      const estado = { scale: 1, tx: 0, ty: 0, fit: 1, contrast: it.s.contrast || 100 };
+      img.onload = () => {
+        estado.fit = Math.min(vp.clientWidth / img.naturalWidth, vp.clientHeight / img.naturalHeight);
+        aplicarTransform(img, estado);
+      };
+      activarPan(vp, img, estado);
+
+      const cerrar = document.createElement('button');
+      cerrar.className = 'fs-close';
+      cerrar.textContent = '×';
+      cerrar.setAttribute('aria-label', 'Cerrar pantalla completa');
+
+      const ctrl = document.createElement('div');
+      ctrl.className = 'fs-controls';
+      const bMenos = mkBtn('−', 'Alejar');
+      const bMas   = mkBtn('+', 'Acercar');
+      const bReset = mkBtn('⟳', 'Restablecer');
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = 50;
+      slider.max = 200;
+      slider.value = estado.contrast;
+      slider.className = 'ctrl-slider';
+      slider.setAttribute('aria-label', 'Contraste');
+
+      bMas.onclick = () => zoom({ s: estado }, img, 1.2);
+      bMenos.onclick = () => zoom({ s: estado }, img, 1 / 1.2);
+      bReset.onclick = () => {
+        estado.scale = 1; estado.tx = 0; estado.ty = 0; estado.contrast = 100;
+        slider.value = 100;
+        aplicarTransform(img, estado);
+      };
+      slider.oninput = () => { estado.contrast = Number(slider.value); aplicarTransform(img, estado); };
+
+      function salir() {
+        document.body.classList.remove('fs-lock');
+        overlay.remove();
+        document.removeEventListener('keydown', teclaSalir);
+      }
+      function teclaSalir(e) { if (e.key === 'Escape') salir(); }
+
+      cerrar.onclick = salir;
+      document.addEventListener('keydown', teclaSalir);
+      ctrl.append(bMenos, bMas, slider, bReset);
+      vp.append(img);
+      overlay.append(vp, cerrar, ctrl);
+      document.body.appendChild(overlay);
+      document.body.classList.add('fs-lock');
+    }
+
+    /* ─── RENDER DEL GRID ────────────────────────────── */
+    function renderGrid(grid, lista) {
+      grid.innerHTML = '';
+      if (!lista.length) {
+        grid.innerHTML = '<div class="img-placeholder" style="grid-column:1/-1">Cargue imágenes para visualizarlas aquí.</div>';
+        return;
+      }
+      lista.forEach((it, idx) => {
+        const frame = document.createElement('div');
+        frame.className = 'img-frame';
+        frame.draggable = true;
+        frame.ondragstart = () => { dragIndex = idx; frame.classList.add('dragging'); };
+        frame.ondragend   = () => frame.classList.remove('dragging');
+        frame.ondragover  = e => e.preventDefault();
+        frame.ondrop      = () => {
+          if (dragIndex === null || dragIndex === idx) return;
+          [items[dragIndex], items[idx]] = [items[idx], items[dragIndex]];
+          dragIndex = null;
+          renderGrid(elGrid, items);
+        };
+
+        const vp = document.createElement('div');
+        vp.className = 'viewport';
+
+        const img = document.createElement('img');
+        img.src = it.src;
+        img.onload = () => {
+          it.s.fit = Math.min(vp.clientWidth / img.naturalWidth, vp.clientHeight / img.naturalHeight);
+          aplicarTransform(img, it.s);
+        };
+
+        activarPan(vp, img, it.s);
+
+        const ctrl = document.createElement('div');
+        ctrl.className = 'img-controls';
+
+        const bMenos  = mkBtn('−', 'Alejar');
+        const bMas    = mkBtn('+', 'Acercar');
+        const bReset  = mkBtn('⟳', 'Restablecer');
+        const bFull   = mkBtn('⛶', 'Pantalla completa');
+        const slider  = document.createElement('input');
+        slider.type   = 'range';
+        slider.min    = 50;
+        slider.max    = 200;
+        slider.value  = it.s.contrast;
+        slider.className = 'ctrl-slider';
+        slider.setAttribute('aria-label', 'Contraste');
+
+        bMas.onclick    = () => zoom(it, img, 1.2);
+        bMenos.onclick  = () => zoom(it, img, 1 / 1.2);
+        bReset.onclick  = () => {
+          it.s.scale = 1; it.s.tx = 0; it.s.ty = 0; it.s.contrast = 100;
+          slider.value = 100;
+          aplicarTransform(img, it.s);
+        };
+        bFull.onclick = () => abrirFullscreen(it);
+        slider.oninput  = () => { it.s.contrast = Number(slider.value); aplicarTransform(img, it.s); };
+
+        ctrl.append(bMenos, bMas, slider, bReset, bFull);
+        vp.append(img);
+        frame.append(vp, ctrl);
+        grid.append(frame);
+      });
+    }
+
+    /* ─── HELPERS DE TRANSFORMACIÓN ──────────────────── */
+    function activarPan(vp, img, s) {
+      let activo = false, x0 = 0, y0 = 0, bx = 0, by = 0;
+      vp.onpointerdown = e => {
+        if (s.scale <= 1) return;
+        activo = true; x0 = e.clientX; y0 = e.clientY; bx = s.tx; by = s.ty;
+        vp.setPointerCapture(e.pointerId);
+      };
+      vp.onpointermove = e => {
+        if (!activo) return;
+        s.tx = bx + (e.clientX - x0);
+        s.ty = by + (e.clientY - y0);
+        aplicarTransform(img, s);
+      };
+      vp.onpointerup     = () => { activo = false; };
+      vp.onpointercancel = () => { activo = false; };
+    }
+
+    function zoom(it, img, factor) {
+      it.s.scale = Math.max(1, Math.min(5, it.s.scale * factor));
+      aplicarTransform(img, it.s);
+    }
+
+    function clampVal(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+    function aplicarTransform(img, s) {
+      const vp = img.parentElement;
+      if (vp && img.naturalWidth && img.naturalHeight) {
+        const k     = s.fit * s.scale;
+        const maxTx = Math.max(0, (img.naturalWidth  * k - vp.clientWidth)  / 2);
+        const maxTy = Math.max(0, (img.naturalHeight * k - vp.clientHeight) / 2);
+        s.tx = clampVal(s.tx, -maxTx, maxTx);
+        s.ty = clampVal(s.ty, -maxTy, maxTy);
+      }
+      img.style.transform = `translate(calc(-50% + ${s.tx}px), calc(-50% + ${s.ty}px)) scale(${s.fit * s.scale})`;
+      img.style.filter    = `contrast(${s.contrast}%)`;
+    }
+
+    function mkBtn(texto, label) {
+      const b = document.createElement('button');
+      b.className   = 'ctrl-btn';
+      b.textContent = texto;
+      if (label) b.setAttribute('aria-label', label);
+      return b;
+    }
+
+    function limpiarDatoDicom(v) {
+      return String(v || '').replace(/\^/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function formatearFechaDicom(v) {
+      v = String(v || '').trim();
+      if (/^\d{8}$/.test(v)) return v.slice(6,8) + '-' + v.slice(4,6) + '-' + v.slice(0,4);
+      return v;
+    }
+
+    async function leerMetadatosDicom(file) {
+      const buffer = await file.arrayBuffer();
+      const byteArray = new Uint8Array(buffer);
+      const dataSet = dicomParser.parseDicom(byteArray);
+      return {
+        nombre: limpiarDatoDicom(dataSet.string('x00100010')),
+        id: limpiarDatoDicom(dataSet.string('x00100020')),
+        nacimiento: formatearFechaDicom(dataSet.string('x00100030')),
+        sexo: limpiarDatoDicom(dataSet.string('x00100040')),
+        edad: limpiarDatoDicom(dataSet.string('x00101010')),
+        fechaEstudio: formatearFechaDicom(dataSet.string('x00080020')),
+        modalidad: limpiarDatoDicom(dataSet.string('x00080060')),
+        descripcion: limpiarDatoDicom(dataSet.string('x00081030'))
+      };
+    }
+
+    async function dicomAImagenBase64(file) {
+      return new Promise((resolve, reject) => {
+        const imageId = cornerstoneWADOImageLoader.wadouri.fileManager.add(file);
+        cornerstone.loadImage(imageId).then(image => {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          cornerstone.renderToCanvas(canvas, image);
+          resolve(canvas.toDataURL('image/jpeg', 0.95));
+        }).catch(reject);
+      });
+    }
+
+    function toBase64(file) {
+      return new Promise(res => {
+        const fr = new FileReader();
+        fr.onload  = () => res(fr.result);
+        fr.readAsDataURL(file);
+      });
+    }
+
+    /* Recalcular fit al redimensionar */
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.viewport img').forEach((img, i) => {
+        const it = items[i];
+        if (!it || it.s.scale !== 1) return;
+        const vp = img.parentElement;
+        if (!img.naturalWidth || !vp) return;
+        it.s.fit = Math.min(vp.clientWidth / img.naturalWidth, vp.clientHeight / img.naturalHeight);
+        aplicarTransform(img, it.s);
+      });
+    });
+
+    /* ─── EXPORTAR HTML ──────────────────────────────── */
+    btnExportar.addEventListener('click', exportar);
+
+    async function exportar() {
+      // Nombre del archivo desde el docx cargado
+      const inputDocxEl = document.getElementById('docx');
+      let nombre = 'expediente';
+      if (inputDocxEl && inputDocxEl.files.length > 0) {
+        nombre = inputDocxEl.files[0].name.replace(/\.[^.]+$/, '');
+      } else if (elNombre && elNombre.textContent.trim()) {
+        nombre = elNombre.textContent.trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]+/g, '_');
+      }
+
+      // Detectar si realmente se cargó interpretación.
+      // Si no hay .docx, el exportado quitará toda la sección de interpretación
+      // para evitar que quede un espacio vacío.
+      const hayInterpretacion = elContenido && elContenido.innerHTML.trim() !== '';
+
+      // Clonar documento completo
+      const clon = document.documentElement.cloneNode(true);
+
+      // Quitar toolbar, inputs y scripts del generador
+      clon.querySelectorAll('#toolbar, input[type=file], script').forEach(el => el.remove());
+
+      // Si no hay interpretación cargada, eliminar esa sección completa del archivo exportado.
+      if (!hayInterpretacion) {
+        const seccionInterpretacion = clon.querySelector('section[aria-label="Interpretación mastográfica"]');
+        if (seccionInterpretacion) seccionInterpretacion.remove();
+      }
+
+      // Vaciar grid en el clon (se repoblará con boot script)
+      const gridClon = clon.querySelector('#imgGrid');
+      if (gridClon) gridClon.innerHTML = '';
+
+      // Snapshot del estado de imágenes
+      const snapshot = items.map(it => ({ src: it.src, s: Object.assign({}, it.s) }));
+
+      // Boot script para el archivo exportado
+      const boot = clon.ownerDocument.createElement('script');
+      boot.textContent = `
+(function(){
+  var items = ${JSON.stringify(snapshot)};
+  var dragIndex = null;
+
+  function clampVal(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+  function aplicarTransform(img,s){
+    var vp = img.parentElement;
+    if(vp && img.naturalWidth && img.naturalHeight){
+      var k = s.fit*s.scale;
+      var maxTx = Math.max(0,(img.naturalWidth*k - vp.clientWidth)/2);
+      var maxTy = Math.max(0,(img.naturalHeight*k - vp.clientHeight)/2);
+      s.tx = clampVal(s.tx,-maxTx,maxTx);
+      s.ty = clampVal(s.ty,-maxTy,maxTy);
+    }
+    img.style.transform = "translate(calc(-50% + "+s.tx+"px),calc(-50% + "+s.ty+"px)) scale("+(s.fit*s.scale)+")";
+    img.style.filter    = "contrast("+s.contrast+"%)";
+  }
+
+  function zoom(it,img,f){
+    it.s.scale = Math.max(1,Math.min(5,it.s.scale*f));
+    aplicarTransform(img,it.s);
+  }
+
+  function activarPan(vp,img,s){
+    var activo=false,x0=0,y0=0,bx=0,by=0;
+    vp.onpointerdown=function(e){
+      if(s.scale<=1) return;
+      activo=true; x0=e.clientX; y0=e.clientY; bx=s.tx; by=s.ty;
+      vp.setPointerCapture(e.pointerId);
+    };
+    vp.onpointermove=function(e){
+      if(!activo) return;
+      s.tx=bx+(e.clientX-x0); s.ty=by+(e.clientY-y0);
+      aplicarTransform(img,s);
+    };
+    vp.onpointerup=function(){ activo=false; };
+    vp.onpointercancel=function(){ activo=false; };
+  }
+
+  function mkBtn(txt,lbl){
+    var b=document.createElement("button");
+    b.className="ctrl-btn"; b.textContent=txt;
+    if(lbl) b.setAttribute("aria-label",lbl);
+    return b;
+  }
+
+
+
+  function abrirFullscreen(it){
+    var overlay=document.createElement("div");
+    overlay.className="fs-overlay activo";
+    var vp=document.createElement("div");
+    vp.className="fs-viewport";
+    var img=document.createElement("img");
+    img.src=it.src;
+    var estado={scale:1,tx:0,ty:0,fit:1,contrast:it.s.contrast||100};
+    img.onload=function(){
+      estado.fit=Math.min(vp.clientWidth/img.naturalWidth, vp.clientHeight/img.naturalHeight);
+      aplicarTransform(img,estado);
+    };
+    activarPan(vp,img,estado);
+    var cerrar=document.createElement("button");
+    cerrar.className="fs-close";
+    cerrar.textContent="×";
+    cerrar.setAttribute("aria-label","Cerrar pantalla completa");
+    var ctrl=document.createElement("div");
+    ctrl.className="fs-controls";
+    var bMenos=mkBtn("\\u2212","Alejar");
+    var bMas=mkBtn("+","Acercar");
+    var bReset=mkBtn("\\u27f3","Restablecer");
+    var slider=document.createElement("input");
+    slider.type="range"; slider.min=50; slider.max=200;
+    slider.value=estado.contrast; slider.className="ctrl-slider";
+    slider.setAttribute("aria-label","Contraste");
+    bMas.onclick=function(){ zoom({s:estado},img,1.2); };
+    bMenos.onclick=function(){ zoom({s:estado},img,1/1.2); };
+    bReset.onclick=function(){
+      estado.scale=1; estado.tx=0; estado.ty=0; estado.contrast=100;
+      slider.value=100; aplicarTransform(img,estado);
+    };
+    slider.oninput=function(){ estado.contrast=Number(slider.value); aplicarTransform(img,estado); };
+    function salir(){
+      document.body.classList.remove("fs-lock");
+      overlay.remove();
+      document.removeEventListener("keydown",teclaSalir);
+    }
+    function teclaSalir(e){ if(e.key==="Escape") salir(); }
+    cerrar.onclick=salir;
+    document.addEventListener("keydown",teclaSalir);
+    ctrl.append(bMenos,bMas,slider,bReset);
+    vp.append(img);
+    overlay.append(vp,cerrar,ctrl);
+    document.body.appendChild(overlay);
+    document.body.classList.add("fs-lock");
+  }
+
+  function renderGrid(){
+    var grid=document.getElementById("imgGrid");
+    if(!grid) return;
+    grid.innerHTML="";
+    items.forEach(function(it,idx){
+      var frame=document.createElement("div");
+      frame.className="img-frame";
+      frame.draggable=true;
+      frame.ondragstart=function(){ dragIndex=idx; frame.classList.add("dragging"); };
+      frame.ondragend=function(){ frame.classList.remove("dragging"); };
+      frame.ondragover=function(e){ e.preventDefault(); };
+      frame.ondrop=function(){
+        if(dragIndex===null||dragIndex===idx) return;
+        var tmp=items[dragIndex]; items[dragIndex]=items[idx]; items[idx]=tmp;
+        dragIndex=null; renderGrid();
+      };
+      var vp=document.createElement("div");
+      vp.className="viewport";
+      var img=document.createElement("img");
+      img.src=it.src;
+      img.onload=function(){
+        it.s.fit=Math.min(vp.clientWidth/img.naturalWidth, vp.clientHeight/img.naturalHeight);
+        aplicarTransform(img,it.s);
+      };
+      activarPan(vp,img,it.s);
+      var ctrl=document.createElement("div");
+      ctrl.className="img-controls";
+      var bMenos=mkBtn("\\u2212","Alejar");
+      var bMas=mkBtn("+","Acercar");
+      var bReset=mkBtn("\\u27f3","Restablecer");
+      var bFull=mkBtn("⛶","Pantalla completa");
+      var slider=document.createElement("input");
+      slider.type="range"; slider.min=50; slider.max=200;
+      slider.value=it.s.contrast; slider.className="ctrl-slider";
+      slider.setAttribute("aria-label","Contraste");
+      bMas.onclick=function(){ zoom(it,img,1.2); };
+      bMenos.onclick=function(){ zoom(it,img,1/1.2); };
+      bReset.onclick=function(){
+        it.s.scale=1; it.s.tx=0; it.s.ty=0; it.s.contrast=100;
+        slider.value=100; aplicarTransform(img,it.s);
+      };
+      bFull.onclick=function(){ abrirFullscreen(it); };
+      slider.oninput=function(){ it.s.contrast=Number(slider.value); aplicarTransform(img,it.s); };
+      ctrl.append(bMenos,bMas,slider,bReset,bFull);
+      vp.append(img);
+      frame.append(vp,ctrl);
+      grid.append(frame);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", renderGrid);
+
+  window.addEventListener("resize",function(){
+    var imgs=document.querySelectorAll(".viewport img");
+    imgs.forEach(function(img,i){
+      var it=items[i];
+      if(!it||it.s.scale!==1) return;
+      var vp=img.parentElement;
+      if(!img.naturalWidth||!vp) return;
+      it.s.fit=Math.min(vp.clientWidth/img.naturalWidth, vp.clientHeight/img.naturalHeight);
+      aplicarTransform(img,it.s);
+    });
+  });
+})();
+      `;
+      clon.querySelector('body').appendChild(boot);
+
+      // Convertir logos/firma externos a base64 dentro del HTML exportado.
+      async function urlToDataURL(url) {
+        if (!url || url.startsWith('data:')) return url;
+        try {
+          const abs = new URL(url, window.location.href).href;
+          const res = await fetch(abs);
+          if (!res.ok) throw new Error('No se pudo leer: ' + url);
+          const blob = await res.blob();
+          return await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = reject;
+            fr.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn('No se pudo convertir a base64:', url, e);
+          return url;
+        }
+      }
+
+      const imgsClon = [...clon.querySelectorAll('img[src]')];
+      for (const img of imgsClon) {
+        const src = img.getAttribute('src') || '';
+        if (src && !src.startsWith('data:')) {
+          img.setAttribute('src', await urlToDataURL(src));
+        }
+      }
+
+      const html = '<!DOCTYPE html>\n' + clon.outerHTML;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = nombre + '.html';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+  })();
+  </script>
+
+</body>
+</html>
